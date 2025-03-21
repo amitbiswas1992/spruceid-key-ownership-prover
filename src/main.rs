@@ -100,6 +100,29 @@ async fn verify_attestation(req: web::Json<VerificationRequest>) -> impl Respond
     }
 }
 
+async fn clear_nonces() -> impl Responder {
+    let mut used_nonces = USED_NONCES.lock().unwrap();
+    let count = used_nonces.len();
+    used_nonces.clear();
+    info!("Cleared {} used nonces", count);
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "message": format!("Cleared {} used nonces", count)
+    }))
+}
+
+async fn list_nonces() -> impl Responder {
+    let used_nonces = USED_NONCES.lock().unwrap();
+    let nonce_list: Vec<&String> = used_nonces.iter().collect();
+
+    info!("Current nonces in system: {:?}", nonce_list);
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "nonce_count": nonce_list.len(),
+        "nonces": nonce_list
+    }))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -110,6 +133,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .route("/api/nonce", web::get().to(generate_nonce))
             .route("/api/verify", web::post().to(verify_attestation))
+            .route("/api/clear-nonces", web::post().to(clear_nonces))
+            .route("/api/list-nonces", web::get().to(list_nonces))
     })
     .bind("0.0.0.0:8080")?
     .run()
